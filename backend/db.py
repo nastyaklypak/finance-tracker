@@ -1,8 +1,7 @@
-import sqlite3
 import os
+import psycopg2
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "database.db")
-
+conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
 
 def get_connection():
     """Повертає з'єднання з базою даних SQLite."""

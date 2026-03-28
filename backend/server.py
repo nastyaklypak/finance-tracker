@@ -77,7 +77,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # GET /analyze — аналіз витрат користувача
         elif path == "/analyze":
-            username = self.headers.get("X-Username")
+            username = unquote(self.headers.get("X-Username", ""))
             if not username:
                 send_json(self, 401, {"error": "Не авторизовано"})
                 return
@@ -148,7 +148,7 @@ class Handler(BaseHTTPRequestHandler):
 
         # POST /transactions — додати нову транзакцію
         elif path == "/transactions":
-            username = self.headers.get("X-Username")
+            username = unquote(self.headers.get("X-Username", ""))
             if not username:
                 send_json(self, 401, {"error": "Не авторизовано"})
                 return
