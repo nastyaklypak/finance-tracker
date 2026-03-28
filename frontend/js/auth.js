@@ -1,6 +1,6 @@
 // ─── Авторизація та управління сесією ───────────────────────────────────────
 
-const API = "http://localhost:8005";
+const API = "https://finance-tracker-api.onrender.com";
 
 // Отримати поточного користувача з localStorage
 function getCurrentUser() {
