@@ -8,9 +8,12 @@ import json
 import bcrypt
 from db import get_connection, init_db
 from analyzer import analyze
+from urllib.parse import unquote 
 
 import os
 PORT = int(os.environ.get("PORT", 8005))
+
+
 
 # ─── CORS та допоміжні функції ────────────────────────────────────────────────
 
@@ -59,7 +62,8 @@ class Handler(BaseHTTPRequestHandler):
 
         # GET /transactions — всі транзакції поточного користувача
         elif path == "/transactions":
-            username = self.headers.get("X-Username")
+            username = unquote(self.headers.get("X-Username", ""))
+            
             if not username:
                 send_json(self, 401, {"error": "Не авторизовано"})
                 return
