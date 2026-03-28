@@ -9,7 +9,8 @@ import bcrypt
 from db import get_connection, init_db
 from analyzer import analyze
 
-PORT = 8005
+import os
+PORT = int(os.environ.get("PORT", 8005))
 
 # ─── CORS та допоміжні функції ────────────────────────────────────────────────
 
