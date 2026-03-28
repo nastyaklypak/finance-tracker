@@ -1,7 +1,7 @@
 import os
 import psycopg2
 
-conn = psycopg2.connect(os.environ.get("DATABASE_URL"))
+conn = psycopg2.connect(os.environ.get("postgresql://finance_tracker_xv4y_user:44iXSOvc5oX6zyUMEu7Y5dHnItZfV6Xw@dpg-d745i9ea2pns73agc9dg-a/finance_tracker_xv4y"))
 
 def get_connection():
     """Повертає з'єднання з базою даних SQLite."""
