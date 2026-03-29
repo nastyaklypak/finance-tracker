@@ -1,227 +1,176 @@
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import unquote
-import json
-import bcrypt
-import psycopg2
-import os
-from db import get_connection, init_db
-from analyzer import analyze
+# from db import get_connection
+# from datetime import datetime, date
+# import calendar
 
-PORT = int(os.environ.get("PORT", 8005))
 
-def cors_headers(handler):
-    handler.send_header("Access-Control-Allow-Origin", "*")
-    handler.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-    handler.send_header("Access-Control-Allow-Headers", "Content-Type, X-Username")
+# def analyze(username: str) -> list[dict]:
+#     """
+#     Аналізує фінансові дані користувача і повертає список порад.
+#     Використовує прості правила (if/else) — без машинного навчання.
+#     """
+#     conn = get_connection()
+#     cursor = conn.cursor()
 
-def send_json(handler, status, data):
-    body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-    handler.send_response(status)
-    handler.send_header("Content-Type", "application/json; charset=utf-8")
-    cors_headers(handler)
-    handler.end_headers()
-    handler.wfile.write(body)
+#     # Отримуємо всі транзакції користувача
+#     cursor.execute(
+#         "SELECT type, amount, category, date FROM transactions WHERE username = ?",
+#         (username,)
+#     )
+#     rows = cursor.fetchall()
+#     conn.close()
 
-def read_body(handler):
-    length = int(handler.headers.get("Content-Length", 0))
-    raw = handler.rfile.read(length)
-    return json.loads(raw) if raw else {}
+#     if not rows:
+#         return [{"type": "info", "icon": "💡", "text": "Ви ще не додали жодної транзакції. Почніть вести облік вже сьогодні!"}]
 
-class Handler(BaseHTTPRequestHandler):
+#     # --- Підрахунок загальних сум ---
+#     total_income = sum(r["amount"] for r in rows if r["type"] == "income")
+#     total_expense = sum(r["amount"] for r in rows if r["type"] == "expense")
+#     savings = total_income - total_expense
+#     savings_percent = (savings / total_income * 100) if total_income > 0 else 0
 
-    def log_message(self, format, *args):
-        print(f"  {self.command} {self.path}")
+#     # --- Витрати за категоріями ---
+#     category_totals = {}
+#     for r in rows:
+#         if r["type"] == "expense":
+#             cat = r["category"]
+#             category_totals[cat] = category_totals.get(cat, 0) + r["amount"]
 
-    def do_OPTIONS(self):
-        self.send_response(204)
-        cors_headers(self)
-        self.end_headers()
+#     # --- Витрати за місяцями ---
+#     today = date.today()
+#     current_month = today.strftime("%Y-%m")
+#     last_month_date = date(today.year, today.month - 1, 1) if today.month > 1 else date(today.year - 1, 12, 1)
+#     last_month = last_month_date.strftime("%Y-%m")
 
-    def do_GET(self):
-        path = self.path.split("?")[0]
+#     current_month_expense = sum(
+#         r["amount"] for r in rows
+#         if r["type"] == "expense" and r["date"].startswith(current_month)
+#     )
+#     last_month_expense = sum(
+#         r["amount"] for r in rows
+#         if r["type"] == "expense" and r["date"].startswith(last_month)
+#     )
 
-        if path == "/health":
-            send_json(self, 200, {"status": "ok", "message": "Сервер працює!"})
+#     tips = []
 
-        elif path == "/transactions":
-            username = unquote(self.headers.get("X-Username", ""))
-            if not username:
-                send_json(self, 401, {"error": "Не авторизовано"})
-                return
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT id, username, type, amount, category, note, date FROM transactions WHERE username = %s ORDER BY date DESC",
-                (username,)
-            )
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            result = [
-                {"id": r[0], "username": r[1], "type": r[2], "amount": r[3],
-                 "category": r[4], "note": r[5], "date": r[6]}
-                for r in rows
-            ]
-            send_json(self, 200, result)
+#     # Правило 1: витрати > доходи
+#     if total_expense > total_income and total_income > 0:
+#         tips.append({
+#             "type": "danger",
+#             "icon": "🚨",
+#             "text": f"Увага! Ви витрачаєте більше ніж заробляєте. Витрати перевищують доходи на {total_expense - total_income:.0f} грн."
+#         })
 
-        elif path == "/analyze":
-            username = unquote(self.headers.get("X-Username", ""))
-            if not username:
-                send_json(self, 401, {"error": "Не авторизовано"})
-                return
-            tips = analyze(username)
-            send_json(self, 200, tips)
+#     # Правило 2: немає доходів
+#     if total_income == 0:
+#         tips.append({
+#             "type": "warning",
+#             "icon": "📥",
+#             "text": "Ви ще не додали жодного доходу. Додайте перший дохід щоб бачити повну картину!"
+#         })
 
-        else:
-            send_json(self, 404, {"error": "Маршрут не знайдено"})
+#     # Правило 3: одна категорія > 50% витрат
+#     if category_totals and total_expense > 0:
+#         top_cat = max(category_totals, key=category_totals.get)
+#         top_percent = category_totals[top_cat] / total_expense * 100
+#         if top_percent > 50:
+#             tips.append({
+#                 "type": "warning",
+#                 "icon": "📊",
+#                 "text": f"Найбільше коштів ({top_percent:.0f}%) йде на '{top_cat}'. Спробуйте контролювати цю статтю витрат."
+#             })
 
-    def do_POST(self):
-        path = self.path.split("?")[0]
+#     # Правило 4: заощадження >= 20%
+#     if total_income > 0 and savings_percent >= 20:
+#         tips.append({
+#             "type": "success",
+#             "icon": "🎉",
+#             "text": f"Молодець! Ви заощаджуєте {savings_percent:.0f}% від доходу. Подумайте про відкриття депозиту або інвестиції!"
+#         })
 
-        if path == "/register":
-            data = read_body(self)
-            name = data.get("name", "").strip()
-            username = data.get("username", "").strip().lower()
-            password = data.get("password", "")
+#     # Правило 5: заощадження < 10%
+#     elif total_income > 0 and 0 <= savings_percent < 10:
+#         tips.append({
+#             "type": "warning",
+#             "icon": "💰",
+#             "text": f"Ви заощаджуєте лише {savings_percent:.0f}%. Рекомендуємо відкладати хоча б 10% доходу щомісяця."
+#         })
 
-            if not name or not username or not password:
-                send_json(self, 400, {"error": "Заповніть усі поля"})
-                return
-            if len(password) < 6:
-                send_json(self, 400, {"error": "Пароль має бути мінімум 6 символів"})
-                return
+#     # Правило 6: витрати різко зросли
+#     if last_month_expense > 0 and current_month_expense > 0:
+#         growth = (current_month_expense - last_month_expense) / last_month_expense * 100
+#         if growth >= 30:
+#             tips.append({
+#                 "type": "danger",
+#                 "icon": "📈",
+#                 "text": f"Витрати цього місяця зросли на {growth:.0f}% порівняно з минулим! Варто переглянути свої витрати."
+#             })
 
-            hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+#     # Якщо все добре
+#     if not tips:
+#         tips.append({
+#             "type": "success",
+#             "icon": "✅",
+#             "text": "Все виглядає добре! Продовжуйте вести облік і ваші фінанси будуть під контролем."
+#         })
 
-            try:
-                conn = get_connection()
-                cursor = conn.cursor()
-                cursor.execute(
-                    "INSERT INTO users (name, username, password) VALUES (%s, %s, %s)",
-                    (name, username, hashed)
-                )
-                conn.commit()
-                cursor.close()
-                conn.close()
-                send_json(self, 201, {"message": "Реєстрація успішна!", "username": username, "name": name})
-            except psycopg2.errors.UniqueViolation:
-                send_json(self, 409, {"error": "Цей логін вже зайнятий"})
-            except Exception as e:
-                send_json(self, 500, {"error": str(e)})
+#     return tips
 
-        elif path == "/login":
-            data = read_body(self)
-            username = data.get("username", "").strip().lower()
-            password = data.get("password", "")
 
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT name, username, password FROM users WHERE username = %s",
-                (username,)
-            )
-            user = cursor.fetchone()
-            cursor.close()
-            conn.close()
+from db import get_connection
+from datetime import date
 
-            if not user:
-                send_json(self, 401, {"error": "Невірний логін або пароль"})
-                return
-            if not bcrypt.checkpw(password.encode(), user[2].encode()):
-                send_json(self, 401, {"error": "Невірний логін або пароль"})
-                return
+def analyze(username):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT type, amount, category, date FROM transactions WHERE username = %s",
+        (username,)
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
 
-            send_json(self, 200, {
-                "message": "Вхід успішний!",
-                "username": user[1],
-                "name": user[0]
-            })
+    if not rows:
+        return [{"type": "info", "icon": "💡", "text": "Ви ще не додали жодної транзакції!"}]
 
-        elif path == "/transactions":
-            username = unquote(self.headers.get("X-Username", ""))
-            if not username:
-                send_json(self, 401, {"error": "Не авторизовано"})
-                return
+    total_income  = sum(r[1] for r in rows if r[0] == "income")
+    total_expense = sum(r[1] for r in rows if r[0] == "expense")
+    savings = total_income - total_expense
+    savings_percent = (savings / total_income * 100) if total_income > 0 else 0
 
-            data = read_body(self)
-            t_type = data.get("type")
-            amount = data.get("amount")
-            category = data.get("category", "").strip()
-            note = data.get("note", "").strip()
-            date = data.get("date", "")
+    category_totals = {}
+    for r in rows:
+        if r[0] == "expense":
+            category_totals[r[2]] = category_totals.get(r[2], 0) + r[1]
 
-            if not t_type or not amount or not category or not date:
-                send_json(self, 400, {"error": "Заповніть обов'язкові поля"})
-                return
+    today = date.today()
+    current_month = today.strftime("%Y-%m")
+    last_month_date = date(today.year, today.month - 1, 1) if today.month > 1 else date(today.year - 1, 12, 1)
+    last_month = last_month_date.strftime("%Y-%m")
 
-            try:
-                amount = float(amount)
-                if amount <= 0:
-                    raise ValueError
-            except (ValueError, TypeError):
-                send_json(self, 400, {"error": "Сума має бути позитивним числом"})
-                return
+    current_expense = sum(r[1] for r in rows if r[0] == "expense" and str(r[3]).startswith(current_month))
+    last_expense    = sum(r[1] for r in rows if r[0] == "expense" and str(r[3]).startswith(last_month))
 
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "INSERT INTO transactions (username, type, amount, category, note, date) VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
-                (username, t_type, amount, category, note, date)
-            )
-            new_id = cursor.fetchone()[0]
-            conn.commit()
-            cursor.close()
-            conn.close()
+    tips = []
 
-            send_json(self, 201, {
-                "id": new_id, "username": username, "type": t_type,
-                "amount": amount, "category": category, "note": note, "date": date
-            })
+    if total_expense > total_income and total_income > 0:
+        tips.append({"type": "danger", "icon": "🚨", "text": f"Увага! Витрати перевищують доходи на {total_expense - total_income:.0f} грн."})
+    if total_income == 0:
+        tips.append({"type": "warning", "icon": "📥", "text": "Ви ще не додали жодного доходу!"})
+    if category_totals and total_expense > 0:
+        top_cat = max(category_totals, key=category_totals.get)
+        top_pct = category_totals[top_cat] / total_expense * 100
+        if top_pct > 50:
+            tips.append({"type": "warning", "icon": "📊", "text": f"Найбільше коштів ({top_pct:.0f}%) йде на '{top_cat}'."})
+    if total_income > 0 and savings_percent >= 20:
+        tips.append({"type": "success", "icon": "🎉", "text": f"Молодець! Ви заощаджуєте {savings_percent:.0f}%. Подумайте про депозит!"})
+    elif total_income > 0 and 0 <= savings_percent < 10:
+        tips.append({"type": "warning", "icon": "💰", "text": f"Ви заощаджуєте лише {savings_percent:.0f}%. Рекомендуємо відкладати хоча б 10%."})
+    if last_expense > 0 and current_expense > 0:
+        growth = (current_expense - last_expense) / last_expense * 100
+        if growth >= 30:
+            tips.append({"type": "danger", "icon": "📈", "text": f"Витрати цього місяця зросли на {growth:.0f}%!"})
+    if not tips:
+        tips.append({"type": "success", "icon": "✅", "text": "Все виглядає добре! Продовжуйте вести облік."})
 
-        else:
-            send_json(self, 404, {"error": "Маршрут не знайдено"})
-
-    def do_DELETE(self):
-        path = self.path.split("?")[0]
-
-        if path.startswith("/transactions/"):
-            username = unquote(self.headers.get("X-Username", ""))
-            if not username:
-                send_json(self, 401, {"error": "Не авторизовано"})
-                return
-            try:
-                t_id = int(path.split("/")[-1])
-            except ValueError:
-                send_json(self, 400, {"error": "Невірний ID"})
-                return
-
-            conn = get_connection()
-            cursor = conn.cursor()
-            cursor.execute(
-                "SELECT id FROM transactions WHERE id = %s AND username = %s",
-                (t_id, username)
-            )
-            row = cursor.fetchone()
-            if not row:
-                cursor.close()
-                conn.close()
-                send_json(self, 404, {"error": "Транзакцію не знайдено"})
-                return
-
-            cursor.execute("DELETE FROM transactions WHERE id = %s", (t_id,))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            send_json(self, 200, {"message": "Транзакцію видалено"})
-
-        else:
-            send_json(self, 404, {"error": "Маршрут не знайдено"})
-
-if __name__ == "__main__":
-    init_db()
-    server = HTTPServer(("0.0.0.0", PORT), Handler)
-    print(f"\n Сервер запущено на порту {PORT}\n")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n Сервер зупинено")
+    return tips
