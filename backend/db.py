@@ -1,44 +1,38 @@
+import psycopg2
 import os
-import psycopg
 
-conn = psycopg.connect(os.environ.get("postgresql://finance_tracker_xv4y_user:44iXSOvc5oX6zyUMEu7Y5dHnItZfV6Xw@dpg-d745i9ea2pns73agc9dg-a/finance_tracker_xv4y"))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# def get_connection():
-#     """Повертає з'єднання з базою даних SQLite."""
-#     conn = sqlite3.connect(DB_PATH)
-#     conn.row_factory = sqlite3.Row  # дозволяє звертатись до колонок по імені
-#     return conn
-
+def get_connection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
 
 def init_db():
-    """Створює таблиці якщо вони ще не існують."""
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Таблиця користувачів
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL
         )
     """)
 
-    # Таблиця транзакцій
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             username TEXT NOT NULL,
             type TEXT NOT NULL,
             amount REAL NOT NULL,
             category TEXT NOT NULL,
             note TEXT,
-            date TEXT NOT NULL,
-            FOREIGN KEY (username) REFERENCES users(username)
+            date TEXT NOT NULL
         )
     """)
 
     conn.commit()
+    cursor.close()
     conn.close()
-    print(" База даних ініціалізована")
+    print("PostgreSQL ініціалізована")

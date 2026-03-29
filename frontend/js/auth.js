@@ -2,6 +2,7 @@
 
 const API = "https://finance-tracker-api-3zzb.onrender.com";
 
+
 // Отримати поточного користувача з localStorage
 function getCurrentUser() {
   const raw = localStorage.getItem("ft_user");
