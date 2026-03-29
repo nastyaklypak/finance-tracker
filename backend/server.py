@@ -12,6 +12,7 @@ from urllib.parse import unquote
 
 import os
 PORT = int(os.environ.get("PORT", 8005))
+app.run(host="0.0.0.0", port=port)
 
 
 

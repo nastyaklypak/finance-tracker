@@ -1,13 +1,13 @@
 import os
-import psycopg2
+import psycopg
 
-conn = psycopg2.connect(os.environ.get("postgresql://finance_tracker_xv4y_user:44iXSOvc5oX6zyUMEu7Y5dHnItZfV6Xw@dpg-d745i9ea2pns73agc9dg-a/finance_tracker_xv4y"))
+conn = psycopg.connect(os.environ.get("postgresql://finance_tracker_xv4y_user:44iXSOvc5oX6zyUMEu7Y5dHnItZfV6Xw@dpg-d745i9ea2pns73agc9dg-a/finance_tracker_xv4y"))
 
-def get_connection():
-    """Повертає з'єднання з базою даних SQLite."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # дозволяє звертатись до колонок по імені
-    return conn
+# def get_connection():
+#     """Повертає з'єднання з базою даних SQLite."""
+#     conn = sqlite3.connect(DB_PATH)
+#     conn.row_factory = sqlite3.Row  # дозволяє звертатись до колонок по імені
+#     return conn
 
 
 def init_db():
