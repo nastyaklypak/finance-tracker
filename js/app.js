@@ -255,47 +255,6 @@ function exportCSV() {
 }
 
 // ─── Експорт PDF ──────────────────────────────────────────────────────────────
-// function exportPDF() {
-//   if (allTransactions.length === 0) {
-//     showToast("Немає даних для експорту", "error");
-//     return;
-//   }
-
-//   const { jsPDF } = window.jspdf;
-//   const doc = new jsPDF();
-
-//   const user = getCurrentUser();
-//   const totalIncome  = allTransactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
-//   const totalExpense = allTransactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
-
-//   doc.setFontSize(18);
-//   doc.text("Фінансовий звіт", 14, 20);
-//   doc.setFontSize(11);
-//   doc.text(`Користувач: ${user?.name || "—"}`, 14, 30);
-//   doc.text(`Дата: ${new Date().toLocaleDateString("uk-UA")}`, 14, 37);
-//   doc.text(`Загальні доходи: ${totalIncome.toFixed(2)} грн`, 14, 47);
-//   doc.text(`Загальні витрати: ${totalExpense.toFixed(2)} грн`, 14, 54);
-//   doc.text(`Баланс: ${(totalIncome - totalExpense).toFixed(2)} грн`, 14, 61);
-
-//   const tableData = allTransactions.map(t => [
-//     t.date,
-//     t.type === "income" ? "Дохід" : "Витрата",
-//     t.category,
-//     t.note || "—",
-//     t.amount.toFixed(2) + " грн"
-//   ]);
-
-//   doc.autoTable({
-//     startY: 70,
-//     head: [["Дата", "Тип", "Категорія", "Примітка", "Сума"]],
-//     body: tableData,
-//     styles: { fontSize: 10 },
-//     headStyles: { fillColor: [67, 97, 238] }
-//   });
-
-//   doc.save(`фінанси_${todayISO()}.pdf`);
-//   showToast("PDF збережено ", "success");
-// }
 async function exportPDF() {
   if (allTransactions.length === 0) {
     showToast("Немає даних для експорту", "error");
@@ -306,9 +265,8 @@ async function exportPDF() {
   const doc = new jsPDF();
   const user = getCurrentUser();
 
-  // ── Завантажуємо шрифт з підтримкою кирилиці ──
-  const fontUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/fonts/Roboto/Roboto-Regular.ttf";
-  const fontResp = await fetch(fontUrl);
+  // ── Завантажуємо кириличний шрифт з репо ──
+  const fontResp = await fetch("/finance-tracker/fonts/Roboto-Regular.ttf");
   const fontBuffer = await fontResp.arrayBuffer();
   const fontBase64 = btoa(
     new Uint8Array(fontBuffer).reduce((d, b) => d + String.fromCharCode(b), "")
@@ -316,7 +274,7 @@ async function exportPDF() {
   doc.addFileToVFS("Roboto-Regular.ttf", fontBase64);
   doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
   doc.setFont("Roboto");
-  // ───────────────────────────────────────────────
+  // ──────────────────────────────────────────
 
   const totalIncome  = allTransactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpense = allTransactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
