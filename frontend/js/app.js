@@ -255,7 +255,7 @@ function exportCSV() {
 }
 
 // ─── Експорт PDF ──────────────────────────────────────────────────────────────
-function exportPDF() {
+async function exportPDF() {
   if (allTransactions.length === 0) {
     showToast("Немає даних для експорту", "error");
     return;
@@ -263,8 +263,20 @@ function exportPDF() {
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
-
   const user = getCurrentUser();
+
+  // ── Завантажуємо кириличний шрифт з репо ──
+  // const fontResp = await fetch("/finance-tracker/fonts/Roboto-Regular.ttf");
+  const fontResp = await fetch("/finance-tracker/fonts/Roboto/Roboto-Regular.ttf");
+  const fontBuffer = await fontResp.arrayBuffer();
+  const fontBase64 = btoa(
+    new Uint8Array(fontBuffer).reduce((d, b) => d + String.fromCharCode(b), "")
+  );
+  doc.addFileToVFS("Roboto-Regular.ttf", fontBase64);
+  doc.addFont("Roboto-Regular.ttf", "Roboto", "normal");
+  doc.setFont("Roboto");
+  // ──────────────────────────────────────────
+
   const totalIncome  = allTransactions.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpense = allTransactions.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0);
 
@@ -289,14 +301,13 @@ function exportPDF() {
     startY: 70,
     head: [["Дата", "Тип", "Категорія", "Примітка", "Сума"]],
     body: tableData,
-    styles: { fontSize: 10 },
-    headStyles: { fillColor: [67, 97, 238] }
+    styles: { fontSize: 10, font: "Roboto" },
+    headStyles: { fillColor: [67, 97, 238], font: "Roboto" }
   });
 
   doc.save(`фінанси_${todayISO()}.pdf`);
   showToast("PDF збережено ", "success");
 }
-
 // ─── Ініціалізація застосунку ─────────────────────────────────────────────────
 window.addEventListener("DOMContentLoaded", () => {
   const user = getCurrentUser();
