@@ -266,7 +266,8 @@ async function exportPDF() {
   const user = getCurrentUser();
 
   // ── Завантажуємо кириличний шрифт з репо ──
-  const fontResp = await fetch("/finance-tracker/fonts/Roboto-Regular.ttf");
+  // const fontResp = await fetch("/finance-tracker/fonts/Roboto-Regular.ttf");
+  const fontResp = await fetch("/finance-tracker/fonts/Roboto/Roboto-Regular.ttf");
   const fontBuffer = await fontResp.arrayBuffer();
   const fontBase64 = btoa(
     new Uint8Array(fontBuffer).reduce((d, b) => d + String.fromCharCode(b), "")
